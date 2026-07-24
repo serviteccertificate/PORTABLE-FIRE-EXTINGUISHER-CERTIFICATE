@@ -529,8 +529,41 @@
   var FIELDS=["f_shipmaster","f_year","f_month","f_date","f_vessel","f_imo","f_certno","f_place","f_flag","f_class","f_items","f_ops","f_next","f_insp_name","f_insp_date","f_appr_name","f_appr_date","f_break","f_break2"];
   // operations available after "HAD BEEN ..." in the certified statement
   var OPS=["INSPECTED","TESTED","WEIGHTED","REFILLED","NEW SUPPLIED","RECHARGED","HYDRO TESTED","REPAIRED","REPAINTED","REJECTED"];
+  var OPS_DEFAULT="INSPECTED / TESTED / WEIGHTED / REFILLED AND NEW SUPPLIED";
   var KEY="ffe_cert_data";
   var saveTimer=null;
+
+  /* ── อ่าน/เขียนค่าของฟิลด์ให้ถูกชนิด ─────────────────────────────
+     f_ops เป็น <span contenteditable> ไม่ใช่ <input> ถ้าไปสั่ง el.value=''
+     จะทำให้ collect() อ่านค่าผิด (ได้ค่าว่าง) — จึงต้องแยกกรณีให้ชัด        */
+  function isInputEl(el){return el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT');}
+  function fldGet(el){return isInputEl(el)?String(el.value||''):String(el.textContent||'');}
+  function fldSet(el,v){if(isInputEl(el))el.value=v;else el.textContent=v;}
+  function clearFields(){
+    FIELDS.forEach(function(f){
+      var el=document.getElementById(f);if(!el)return;
+      fldSet(el,(f==='f_ops')?OPS_DEFAULT:'');
+    });
+    autosizeItems();
+  }
+  /* นับจำนวนแถวรายการที่มีข้อมูลจริง (ใช้เติมช่องจำนวนอัตโนมัติเมื่อผู้ใช้เว้นว่าง) */
+  function countItemRows(){
+    var n=0;
+    document.querySelectorAll('#rows tr:not(.xhdr):not(.pagemark)').forEach(function(tr){
+      var has=false;
+      tr.querySelectorAll('[data-col]').forEach(function(el){if(String(el.value||'').trim())has=true;});
+      if(has)n++;
+    });
+    return n;
+  }
+  /* ถ้าช่อง ( จำนวน ) ยังว่าง ให้เติมจำนวนแถวให้อัตโนมัติก่อนบันทึก */
+  function ensureItemsCount(){
+    var el=document.getElementById('f_items');if(!el)return;
+    if(String(el.value||'').trim()==='') {
+      var n=countItemRows();
+      if(n){el.value=String(n);autosizeItems();}
+    }
+  }
 
   function cell(html){var td=document.createElement('td');td.innerHTML=html;return td;}
   function inAttr(col){
@@ -1070,7 +1103,7 @@
   /* ---------- DATA ---------- */
   function collect(){
     var d={fields:{},rows:[],opt:{}};
-    FIELDS.forEach(function(f){var el=document.getElementById(f);if(el)d.fields[f]=('value' in el)?el.value:el.textContent;});
+    FIELDS.forEach(function(f){var el=document.getElementById(f);if(el)d.fields[f]=fldGet(el);});
     d.opt.density=document.getElementById('opt_density').value;
     d.opt.auto=document.getElementById('opt_auto').checked;
     d.opt.pen=document.getElementById('opt_pen').checked;
@@ -1083,7 +1116,13 @@
   }
   function apply(d){
     if(!d)return;
-    if(d.fields)FIELDS.forEach(function(f){var el=document.getElementById(f);if(el&&d.fields[f]!=null){if('value' in el)el.value=d.fields[f];else el.textContent=d.fields[f];}});
+    if(d.fields)FIELDS.forEach(function(f){
+      var el=document.getElementById(f);if(!el)return;
+      if(d.fields[f]==null)return;                     // ไม่มีคีย์นี้ในข้อมูล → คงค่าเดิมไว้
+      var v=String(d.fields[f]);
+      if(f==='f_ops'&&v.trim()==='')v=OPS_DEFAULT;     // ประโยค HAD BEEN ... ต้องไม่ว่าง
+      fldSet(el,v);
+    });
     document.querySelectorAll('input.namefld').forEach(autosizeName);
     autosizeItems();
     var dens=(d.opt&&d.opt.density)||(d.opt&&d.opt.compact?'compact':'normal');
@@ -1150,7 +1189,7 @@
   }
   function resetAll(){
     if(!confirm('ล้างข้อมูลทั้งหมด?'))return;
-    FIELDS.forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
+    clearFields();
     setYearDefaults();
     document.getElementById('f_break').value='20';
     document.getElementById('f_break2').value='34';
@@ -1208,9 +1247,12 @@
     try{
       var j=await gasGet(url+'?action=test');
       if(j&&j.ok){
-        var hdr=j.headerOk?'✅ หัวตารางถูกต้อง':'⚠️ ยังไม่มีหัวตาราง (จะเติมให้อัตโนมัติตอนบันทึกครั้งถัดไป)';
+        var hdr=j.headerOk?'✅ หัวตารางครบถ้วน':'⚠️ หัวตารางยังขาด: '+esc((j.missing||[]).join(', ')||'-');
+        var itm=(j.itemsCol)
+          ? '✅ ช่องจำนวน ( ) ITEMS → บันทึกลงคอลัมน์ที่ '+j.itemsCol
+          : '❌ ไม่พบคอลัมน์ "Items" ในชีต — ตัวเลขในวงเล็บจะไม่ถูกบันทึก<br><small>วิธีแก้: เปิด Google Sheet → เมนู 🛟 ใบรับรอง FFE → 🆕 ติดตั้ง / ซ่อมหัวตาราง</small>';
         r.innerHTML='✅ เชื่อมต่อสำเร็จ — เวอร์ชันสคริปต์: <b style="color:#7c3aed">'+esc(j.version||'(ไม่พบ — โค้ดเก่า!)')+'</b><br>'+
-          'Sheet: <b>'+esc(j.sheet)+'</b> (gid='+j.gid+') · มีข้อมูล <b>'+j.rows+'</b> แถว<br>'+hdr;
+          'Sheet: <b>'+esc(j.sheet)+'</b> (gid='+j.gid+') · มีข้อมูล <b>'+j.rows+'</b> แถว<br>'+hdr+'<br>'+itm;
         cstatus('เชื่อมต่อ Google Sheet สำเร็จ ✓');
         document.getElementById('cloudCfg').style.display='none';
       }else{r.innerHTML='❌ '+(j&&j.error||JSON.stringify(j));}
@@ -1223,6 +1265,7 @@
   async function saveCloud(){
     var url=getCloudUrl();
     if(!url){toggleCloudCfg();cstatus('กรุณาใส่ลิงก์ Apps Script ก่อน',true);return;}
+    ensureItemsCount();
     var d=collect();
     var editRow=window.__editRow||null;
     cstatus(editRow?'กำลังอัปเดต...':'กำลังบันทึก...');
@@ -1329,7 +1372,7 @@
     if(!confirm('สร้างใบรับรองใหม่? ข้อมูลปัจจุบันในฟอร์มจะถูกล้าง'))return;
     window.__editRow=null;
     document.getElementById('editRowBadge').style.display='none';
-    FIELDS.forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
+    clearFields();
     setYearDefaults();
     document.getElementById('rows').innerHTML='';addRow(8);
     cstatus('ฟอร์มใหม่พร้อมแล้ว ✓');
@@ -1365,11 +1408,18 @@
       autosizeName(el);
     });
     var itemsEl=document.getElementById('f_items');
-    if(itemsEl){itemsEl.addEventListener('input',autosizeItems);autosizeItems();}
+    if(itemsEl){
+      itemsEl.setAttribute('inputmode','numeric');
+      ['input','change','blur'].forEach(function(ev){
+        itemsEl.addEventListener(ev,function(){autosizeItems();scheduleSave();});
+      });
+      autosizeItems();
+    }
     var opsEl=document.getElementById('f_ops');
     if(opsEl){
       opsEl.addEventListener('focus',showOpsMenu);
       opsEl.addEventListener('click',showOpsMenu);
+      ['input','blur'].forEach(function(ev){opsEl.addEventListener(ev,scheduleSave);});
     }
     syncManual();
     window.__editRow=null;
