@@ -278,6 +278,17 @@
     tr{break-inside:avoid;}
     .sign,.statement{break-inside:avoid;}
   }
+
+  /* ---- off-screen PRINT-SIZE SIMULATION (used only to measure real row heights for accurate auto page breaks; never visible) ---- */
+  body.measureprint .title{font-size:23px;}
+  body.measureprint .center-logo img{height:30px;}
+  body.measureprint .class-logos{height:34px;}
+  body.measureprint input,body.measureprint textarea,body.measureprint select{border:0;}
+  /* normal density prints rows at 9px (screen shows 10px); compact/ultra already match print, so only touch normal */
+  body.measureprint:not(.compact):not(.ultra) #rows td input,
+  body.measureprint:not(.compact):not(.ultra) #rows td select,
+  body.measureprint:not(.compact):not(.ultra) #rows td .typebox,
+  body.measureprint:not(.compact):not(.ultra) #rows td .workbox{font-size:9px;}
 </style>
 </head>
 <body>
@@ -992,6 +1003,44 @@
     return breaks;
   }
 
+  /* Accurate auto page-breaking: instead of guessing rows-per-page with the fixed CAP table,
+     measure the REAL height of every row (at print font sizes) and the repeating header/footer,
+     then fill each A4 page to its true capacity. This removes the big white gaps that appear
+     when a row wraps to 2 lines (e.g. long TYPE values) and the fixed estimate no longer matches. */
+  function measuredBreaks(total){
+    var body=document.body, restored=false;
+    function restore(){ if(restored)return; restored=true; body.classList.remove('measureprint');
+      try{resizeAllTypeboxes();resizeAllWorkboxes();}catch(e){} }
+    try{
+      body.classList.add('measureprint');
+      try{resizeAllTypeboxes();resizeAllWorkboxes();}catch(e){} // recompute textarea heights at print font
+      var MM=96/25.4;                 // CSS px per mm at 96dpi (Chrome default print scale)
+      var pageH=283*MM;               // A4 297mm − 2×7mm @page margin = usable content height / page
+      function h(el){return el?el.getBoundingClientRect().height:0;}
+      var theadH =h(document.querySelector('.doc thead'));
+      var tfootH =h(document.querySelector('.doc tfoot'));
+      var topH   =h(document.getElementById('topblock'));   // vessel info + legend + 1st column header (page 1 only)
+      var endH   =h(document.getElementById('endblock'));   // statement + signatures (last page)
+      var colhdrH=h(document.getElementById('colhdr'));      // repeated column header on continued pages
+      var heights=[];
+      document.querySelectorAll('#rows tr').forEach(function(r){heights.push(r.getBoundingClientRect().height);});
+      if(!(pageH>0)||!(theadH>0)||heights.length!==total){ restore(); return computeBreaks(total); }
+      // pack the data rows PLUS the signature block (as a final unbreakable item) so the computed
+      // page count always matches what actually prints — signatures never spill to an uncounted page
+      var items=heights.slice(); items.push(endH);
+      var N=items.length, breaks=[], i=0, page=1, guard=0;
+      while(i<N && guard++<10000){
+        var avail=pageH-theadH-tfootH-(page===1?topH:colhdrH);
+        var sum=0, placed=0;
+        while(i<N && (sum+items[i])<=avail){ sum+=items[i]; i++; placed++; }
+        if(placed===0){ i++; }                      // safety: one oversized item goes on its own page
+        if(i<N){ breaks.push(i); page++; }           // break AFTER `i` items; i can reach `total` (signatures alone)
+      }
+      restore();
+      return breaks.filter(function(b){return b>=1 && b<=total;});
+    }catch(e){ restore(); return computeBreaks(total); }
+  }
+
   function syncManual(){
     var auto=document.getElementById('opt_auto').checked;
     document.querySelector('.opts').classList.toggle('autoon',auto);
@@ -1009,7 +1058,7 @@
     // build set of break positions (cumulative row numbers to break AFTER)
     var pos={},auto=document.getElementById('opt_auto').checked;
     if(auto){
-      computeBreaks(total).forEach(function(b){if(b<total)pos[b]=1;});
+      measuredBreaks(total).forEach(function(b){if(b>=1&&b<=total)pos[b]=1;});
     }else{
       var e1=document.getElementById('f_break'),e2=document.getElementById('f_break2');
       var n1=e1?parseInt(e1.value,10):0,n2=e2?parseInt(e2.value,10):0;
@@ -1019,7 +1068,7 @@
     rows.forEach(function(r,i){
       if(pos[i+1]){
         r.classList.add('pbreak');
-        if(tmpl){var clone=tmpl.cloneNode(true);clone.removeAttribute('id');clone.classList.add('xhdr');r.parentNode.insertBefore(clone,r.nextSibling);}
+        if(tmpl && (i+1)!==total){var clone=tmpl.cloneNode(true);clone.removeAttribute('id');clone.classList.add('xhdr');r.parentNode.insertBefore(clone,r.nextSibling);}
       }
     });
     // ----- page numbers as document content (prints reliably, never clipped) -----
@@ -1430,6 +1479,8 @@
     requestAnimationFrame(function(){resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();});
     var __rsz=null;
     window.addEventListener('resize',function(){if(__rsz)clearTimeout(__rsz);__rsz=setTimeout(function(){resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();},120);});
+    // recompute page breaks from the latest row heights just before printing (a row may have wrapped to 2 lines while typing)
+    window.addEventListener('beforeprint',function(){try{renumber();}catch(e){}});
 
     /* ★ ลิงก์ตรงจาก Google Sheet: ...?row=5&gsUrl=<Apps Script URL> */
     /*   คอลัมน์ "เปิดแก้ไข" ในชีตจะมีลิงก์แบบนี้ให้ คลิกแล้วเปิดใบนั้นในฟอร์มทันที */
