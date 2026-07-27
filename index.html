@@ -284,6 +284,9 @@
   body.measureprint .center-logo img{height:30px;}
   body.measureprint .class-logos{height:34px;}
   body.measureprint input,body.measureprint textarea,body.measureprint select{border:0;}
+  body.measureprint .sheet{padding:7mm;box-shadow:none;} /* match the real @page margin (7mm) so text wraps exactly as it will print */
+  body.measureprint .no-print{display:none!important;}
+  body.measureprint .delcol,body.measureprint #rows td.delcell{display:none!important;} /* this column is removed on the real printed page, so the data columns get wider there — hide it during measurement too or row heights get overestimated */
   /* normal density prints rows at 9px (screen shows 10px); compact/ultra already match print, so only touch normal */
   body.measureprint:not(.compact):not(.ultra) #rows td input,
   body.measureprint:not(.compact):not(.ultra) #rows td select,
@@ -680,6 +683,11 @@
     if(document.body.classList.contains('penmode'))return 16;
     if(document.body.classList.contains('ultra'))return 8;
     if(document.body.classList.contains('compact'))return 9;
+    // normal density prints/measures at 9px (screen shows 10px) — without this, autosize always
+    // assumed 10px even while measuring page breaks or while the page is actually printing, so the
+    // text used to decide where a page ends was a different size than the text that actually printed,
+    // which is what made rows crowd/overlap and left big blank gaps at the bottom of some pages.
+    if(document.body.classList.contains('measureprint'))return 9;
     return 10;
   }
   // keep the value together on one line, EXCEPT allow a line break right before a "(...)" group,
@@ -981,7 +989,7 @@
   // page capacities (rows) measured from real A4 prints
   // P1/PN = rows-only on a non-last page; P1S/PNS = rows on a LAST page (shares space with signature)
   var CAP={
-    normal :{P1:33,P1S:21,PN:58,PNS:44},
+    normal :{P1:33,P1S:18,PN:48,PNS:32},
     compact:{P1:41,P1S:26,PN:72,PNS:56},
     ultra  :{P1:48,P1S:37,PN:70,PNS:57}
   };
@@ -1037,7 +1045,17 @@
         if(i<N){ breaks.push(i); page++; }           // break AFTER `i` items; i can reach `total` (signatures alone)
       }
       restore();
-      return breaks.filter(function(b){return b>=1 && b<=total;});
+      var mb=breaks.filter(function(b){return b>=1 && b<=total;});
+      var cb=computeBreaks(total);
+      if(mb.length>cb.length){
+        // the measured layout used MORE pages than the proven fixed-capacity table — only trust
+        // that if some row is genuinely tall (wrapped to 2+ lines); otherwise a measurement glitch
+        // is the more likely explanation, so fall back to the reliable numbers.
+        var typical=Math.min.apply(null,heights.filter(function(x){return x>0;}));
+        var tallest=Math.max.apply(null,heights);
+        if(!(tallest>typical*1.6)) return cb;
+      }
+      return mb;
     }catch(e){ restore(); return computeBreaks(total); }
   }
 
@@ -1058,7 +1076,7 @@
     // build set of break positions (cumulative row numbers to break AFTER)
     var pos={},auto=document.getElementById('opt_auto').checked;
     if(auto){
-      measuredBreaks(total).forEach(function(b){if(b>=1&&b<=total)pos[b]=1;});
+      computeBreaks(total).forEach(function(b){if(b>=1&&b<=total)pos[b]=1;});
     }else{
       var e1=document.getElementById('f_break'),e2=document.getElementById('f_break2');
       var n1=e1?parseInt(e1.value,10):0,n2=e2?parseInt(e2.value,10):0;
@@ -1480,7 +1498,19 @@
     var __rsz=null;
     window.addEventListener('resize',function(){if(__rsz)clearTimeout(__rsz);__rsz=setTimeout(function(){resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();},120);});
     // recompute page breaks from the latest row heights just before printing (a row may have wrapped to 2 lines while typing)
-    window.addEventListener('beforeprint',function(){try{renumber();}catch(e){}});
+    window.addEventListener('beforeprint',function(){
+      try{
+        // Don't recalculate breaks — computeBreaks uses standard CAP table
+        document.body.classList.add('measureprint');
+        resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();
+      }catch(e){}
+    });
+    window.addEventListener('afterprint',function(){
+      try{
+        document.body.classList.remove('measureprint');
+        resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();
+      }catch(e){}
+    });
 
     /* ★ ลิงก์ตรงจาก Google Sheet: ...?row=5&gsUrl=<Apps Script URL> */
     /*   คอลัมน์ "เปิดแก้ไข" ในชีตจะมีลิงก์แบบนี้ให้ คลิกแล้วเปิดใบนั้นในฟอร์มทันที */
