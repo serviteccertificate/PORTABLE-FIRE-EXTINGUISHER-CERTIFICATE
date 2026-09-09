@@ -277,7 +277,17 @@
     #rows tr.xhdr{display:table-row;}
     tr{break-inside:avoid;}
     .sign,.statement{break-inside:avoid;}
+    #summarySheet{break-before:page;page-break-before:always;}
   }
+
+  /* ---------- SUMMARY PAGE (last page: totals by TYPE / CAPACITY) ---------- */
+  #summarySheet table{margin-top:0;}
+  #summarySheet .sumtitle{background:var(--head);font-weight:bold;text-align:center;font-size:12px;padding:4px;}
+  #summarySheet .sumsection{margin-bottom:16px;}
+  #summarySheet td.tleft{text-align:left;}
+  #summarySheet td.tcenter{text-align:center;}
+  #summarySheet tr.grandtotal td{font-weight:bold;background:#eef3f9;}
+  #summarySheet .nodata{text-align:center;color:#94a3b8;}
 
   /* ---- off-screen PRINT-SIZE SIMULATION (used only to measure real row heights for accurate auto page breaks; never visible) ---- */
   body.measureprint .title{font-size:23px;}
@@ -531,6 +541,28 @@
    <button class="btn grey" onclick="addRow(5)">➕ เพิ่ม 5 แถว</button>
  </div>
 
+</div>
+
+<!-- ===== SUMMARY PAGE (always the last printed page): totals grouped by TYPE and by CAPACITY ===== -->
+<div class="sheet" id="summarySheet">
+  <div class="title" style="font-size:20px;">SUMMARY OF FIRE EXTINGUISHERS BY TYPE &amp; CAPACITY</div>
+  <div style="text-align:center;font-weight:bold;font-size:12px;margin:4px 0 14px;" id="sum_vessel"></div>
+
+  <div class="sumsection">
+    <table>
+      <thead>
+        <tr><th colspan="3" class="sumtitle">SUMMARY BY TYPE &amp; CAPACITY (จำนวนถังต่อประเภท+ขนาดเดียวกัน)</th></tr>
+        <tr><th style="width:40%">TYPE</th><th style="width:30%">CAPACITY</th><th style="width:30%">QTY (CYLINDERS)</th></tr>
+      </thead>
+      <tbody id="sumByTypeCap"></tbody>
+    </table>
+  </div>
+
+  <table>
+    <tbody>
+      <tr class="grandtotal"><td style="text-align:right" colspan="2">GRAND TOTAL (ALL CYLINDERS)</td><td class="tcenter" id="sum_grand">0</td></tr>
+    </tbody>
+  </table>
 </div>
 
 <script>
@@ -1204,11 +1236,64 @@
     // TYPE / WORKING CODE / Q'TY cells when opening a saved certificate for editing)
     resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();
     requestAnimationFrame(function(){resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();});
+    try{buildSummaryPage();}catch(e){}
+  }
+
+  /* ===== SUMMARY PAGE: group the equipment rows by TYPE and by CAPACITY ===== */
+  var COL_LIST=['qty','location','brand','cylinder','mfd','lasthydro','hydro','type','fire','capacity','code'];
+  function collectCylinderData(){
+    var data=[];
+    document.querySelectorAll('#rows tr:not(.xhdr):not(.pagemark)').forEach(function(tr){
+      var val=function(c){var el=tr.querySelector('[data-col="'+c+'"]');return el?String(el.value||'').trim():'';};
+      var hasAny=COL_LIST.some(function(c){return val(c);});
+      if(!hasAny)return;
+      var type=val('type')||'(UNSPECIFIED)';
+      var capacity=val('capacity')||'(UNSPECIFIED)';
+      var qtyRaw=val('qty');
+      var m=qtyRaw.match(/(\d+(?:\.\d+)?)/);
+      var qty=m?parseFloat(m[1]):1;
+      if(!qty||isNaN(qty))qty=1;
+      data.push({type:type.toUpperCase(),capacity:capacity.toUpperCase(),qty:qty});
+    });
+    return data;
+  }
+  function capacityNum(c){var m=String(c).match(/(\d+(?:\.\d+)?)/);return m?parseFloat(m[1]):999999;}
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function buildSummaryPage(){
+    var elTC=document.getElementById('sumByTypeCap');
+    var elVessel=document.getElementById('sum_vessel');
+    var elGrand=document.getElementById('sum_grand');
+    if(!elTC)return; // summary page not present in this document
+    var data=collectCylinderData();
+    var byTC={},grand=0;
+    data.forEach(function(d){
+      var key=d.type+'\u0001'+d.capacity;
+      byTC[key]=byTC[key]||{type:d.type,capacity:d.capacity,qty:0};
+      byTC[key].qty+=d.qty;
+      grand+=d.qty;
+    });
+    var tcRows=Object.keys(byTC).map(function(k){return byTC[k];}).sort(function(a,b){
+      if(a.type<b.type)return -1;if(a.type>b.type)return 1;
+      return capacityNum(a.capacity)-capacityNum(b.capacity);
+    });
+    elTC.innerHTML=tcRows.length
+      ?tcRows.map(function(r){return '<tr><td class="tleft">'+esc(r.type)+'</td><td class="tcenter">'+esc(r.capacity)+'</td><td class="tcenter" style="font-weight:bold">'+r.qty+'</td></tr>';}).join('')
+      :'<tr><td colspan="3" class="nodata">NO DATA</td></tr>';
+    if(elVessel){
+      var vessel=document.getElementById('f_vessel');
+      var certno=document.getElementById('f_certno');
+      var parts=[];
+      if(vessel&&vessel.value)parts.push('VESSEL : '+vessel.value);
+      if(certno&&certno.value)parts.push('CERT NO. : '+certno.value);
+      elVessel.textContent=parts.join('   |   ');
+    }
+    if(elGrand)elGrand.textContent=grand;
   }
 
   function scheduleSave(){
     if(saveTimer)clearTimeout(saveTimer);
     saveTimer=setTimeout(saveStore,500);
+    try{buildSummaryPage();}catch(e){}
   }
   function autoStatus(t){var s=document.getElementById('autoStatus');if(s)s.textContent=t;}
   async function saveStore(){
@@ -1495,6 +1580,7 @@
     if(!loaded){setYearDefaults();addRow(8);}
     resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();
     requestAnimationFrame(function(){resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();});
+    try{buildSummaryPage();}catch(e){}
     var __rsz=null;
     window.addEventListener('resize',function(){if(__rsz)clearTimeout(__rsz);__rsz=setTimeout(function(){resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();},120);});
     // recompute page breaks from the latest row heights just before printing (a row may have wrapped to 2 lines while typing)
@@ -1503,6 +1589,7 @@
         // Don't recalculate breaks — computeBreaks uses standard CAP table
         document.body.classList.add('measureprint');
         resizeAllTypeboxes();resizeAllWorkboxes();resizeAllQty();resizeAllLoc();
+        buildSummaryPage();
       }catch(e){}
     });
     window.addEventListener('afterprint',function(){
