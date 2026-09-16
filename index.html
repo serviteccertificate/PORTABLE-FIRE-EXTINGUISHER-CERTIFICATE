@@ -237,21 +237,6 @@
   .sign input{text-align:center;}
   .sign input.namefld{display:inline-block;width:14ch;min-width:6ch;max-width:95%;text-align:center;}
   .sign .role{margin-top:2px;}
-  /* role badge — คลิกได้ เปลี่ยน role */
-  .rolebadge{cursor:pointer;border-bottom:1.5px dashed #9bb4d4;padding-bottom:1px;
-    display:inline-block;transition:color .15s,border-color .15s;}
-  .rolebadge:hover{color:#1b4fa0;border-color:#1b4fa0;}
-  .role-arrow{font-size:8px;color:#9bb4d4;margin-left:2px;vertical-align:middle;}
-  /* dropdown role */
-  #inspRoleMenu,#apprRoleMenu{position:fixed;z-index:85;display:none;background:#fff;
-    border:1px solid #9bb4d4;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.22);
-    overflow-y:auto;min-width:210px;font-size:13px;
-    scrollbar-width:thin;scrollbar-color:#7b97c4 #eef2f7;}
-  #inspRoleMenu div,#apprRoleMenu div{padding:9px 14px;cursor:pointer;
-    white-space:nowrap;font-weight:bold;color:#1e3a5f;}
-  #inspRoleMenu div:hover,#apprRoleMenu div:hover{background:#e8f0fe;}
-  #inspRoleMenu div.active,#apprRoleMenu div.active{background:#dbeafe;color:#1b4fa0;}
-  @media print{.role-arrow{display:none!important;}}
 
   .footer{margin-top:14px;text-align:center;font-size:9.5px;line-height:1.5;border-top:1px solid #ccc;padding-top:6px;}
   .footer .th{font-size:10px;}
@@ -356,7 +341,6 @@
 
 <div class="cloudbar no-print">
   <button class="btn green" onclick="saveCloud()">☁️ บันทึก / อัปเดต</button>
-  <button class="btn" style="background:#06C755" onclick="sendLineMsg()" title="เปิด LINE พร้อมข้อความ — กดส่งเองในแอป">💬 ส่ง LINE</button>
   <button class="btn" onclick="listCloud()">📋 รายการทั้งหมด</button>
   <button class="btn grey" onclick="newCert()">➕ ใบรับรองใหม่</button>
   <button class="btn grey" onclick="toggleCloudCfg()">⚙️ ตั้งค่า</button>
@@ -531,13 +515,13 @@
         <div>
           <div>INSPECTED BY</div>
           <div class="line">(<input id="f_insp_name" class="namefld">)</div>
-          <div class="role"><span id="f_insp_role" class="rolebadge" data-role="INSPECTION PERFORMER" onclick="showInspRoleMenu()">INSPECTION PERFORMER<span class="role-arrow no-print">▾</span></span></div>
+          <div class="role">INSPECTION PERFORMER</div>
           <input id="f_insp_date" style="width:55%;margin-top:4px" placeholder="DD / MM / YYYY">
         </div>
         <div>
           <div>APPROVED BY</div>
           <div class="line">(<input id="f_appr_name" class="namefld">)</div>
-          <div class="role"><span id="f_appr_role" class="rolebadge" data-role="MANAGER" onclick="showApprRoleMenu()">MANAGER<span class="role-arrow no-print">▾</span></span></div>
+          <div class="role">MANAGER</div>
           <input id="f_appr_date" style="width:55%;margin-top:4px" placeholder="DD / MM / YYYY">
         </div>
       </div>
@@ -588,7 +572,7 @@
   var WORK=["1 , 9","1 , 2","1 , 3 , 9","1 , 4 , 9","1 , 2 , 3 , 4 , 9","1","2","3","4","5","6","7","8","9"];
   var QTY=["1 CYLN","1 UNIT","1 TROLLEY"];
   var LOCATIONS=["A DECK","ACCOM DECK","AIR COND ROOM","B DECK","BRIDGE DECK","BOILER","BATTERY ROOM","BOSUN STORE","BOW THRUSTER","C DECK","CCR","COMPRESSOR ROOM","CARGO HOLD NO.1","CARGO HOLD NO.2","CARGO HOLD NO.3","CARGO HOLD NO.4","CARGO HOLD NO.5","CARGO HOLD NO.6","CARGO HOLD NO.7","CARGO HOLD NO.8","CAPT DECK","D DECK","DECK STORE","E DECK","ENGINE ROOM","ECR","EMERGENCY GEN.","F DECK","FIRE STATION","FUNNEL","FORECASTLE","GALLEY","GENERATOR ROOM","HELI DECK","HOSPITAL","IG ROOM","LABORATORY","LIFEBOAT PORT","LIFEBOAT STBD","LAUNDRY","MESS ROOM","MAIN DECK","NAV.BRIDGE","OFFICE MESS ROOM","PAINT STORE","PUMP ROOM","PURIFIER ROOM","POOP DECK","RESCUE BOAT","SMOKING ROOM","SAFETY STORE","STEERING GEAR","UPPER DECK","WHEEL HOUSE","WORKSHOP"];
-  var FIELDS=["f_shipmaster","f_year","f_month","f_date","f_vessel","f_imo","f_certno","f_place","f_flag","f_class","f_items","f_ops","f_next","f_insp_name","f_insp_role","f_insp_date","f_appr_name","f_appr_role","f_appr_date","f_break","f_break2"];
+  var FIELDS=["f_shipmaster","f_year","f_month","f_date","f_vessel","f_imo","f_certno","f_place","f_flag","f_class","f_items","f_ops","f_next","f_insp_name","f_insp_date","f_appr_name","f_appr_date","f_break","f_break2"];
   // operations available after "HAD BEEN ..." in the certified statement
   var OPS=["INSPECTED","TESTED","WEIGHTED","REFILLED","NEW SUPPLIED","RECHARGED","HYDRO TESTED","REPAIRED","REPAINTED","REJECTED"];
   var OPS_DEFAULT="INSPECTED / TESTED / WEIGHTED / REFILLED AND NEW SUPPLIED";
@@ -598,35 +582,13 @@
   /* ── อ่าน/เขียนค่าของฟิลด์ให้ถูกชนิด ─────────────────────────────
      f_ops เป็น <span contenteditable> ไม่ใช่ <input> ถ้าไปสั่ง el.value=''
      จะทำให้ collect() อ่านค่าผิด (ได้ค่าว่าง) — จึงต้องแยกกรณีให้ชัด        */
-  var ROLE_DEFAULT={f_insp_role:'INSPECTION PERFORMER',f_appr_role:'MANAGER'};
   function isInputEl(el){return el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT');}
-  function isRoleBadge(el){return el&&el.classList&&el.classList.contains('rolebadge');}
-  function fldGet(el){
-    if(!el)return '';
-    if(isInputEl(el))return String(el.value||'');
-    if(isRoleBadge(el))return String(el.dataset.role||'');
-    return String(el.textContent||'');
-  }
-  function fldSet(el,v){
-    if(!el)return;
-    if(isInputEl(el)){el.value=v;return;}
-    if(isRoleBadge(el)){setRoleBadge(el,v);return;}
-    el.textContent=v;
-  }
-  function setRoleBadge(el,v){
-    el.dataset.role=v;
-    // อัปเดต text node แรก เก็บ .role-arrow span ไว้
-    var arr=el.querySelector('.role-arrow');
-    el.innerHTML='';
-    el.appendChild(document.createTextNode(v));
-    if(arr)el.appendChild(arr);
-  }
+  function fldGet(el){return isInputEl(el)?String(el.value||''):String(el.textContent||'');}
+  function fldSet(el,v){if(isInputEl(el))el.value=v;else el.textContent=v;}
   function clearFields(){
     FIELDS.forEach(function(f){
       var el=document.getElementById(f);if(!el)return;
-      if(f==='f_ops')fldSet(el,OPS_DEFAULT);
-      else if(ROLE_DEFAULT[f])fldSet(el,ROLE_DEFAULT[f]);
-      else fldSet(el,'');
+      fldSet(el,(f==='f_ops')?OPS_DEFAULT:'');
     });
     autosizeItems();
   }
@@ -1228,50 +1190,6 @@
     if(parts.indexOf(v)<0){el.textContent=cur?(cur+' / '+v):v;scheduleSave();}
     hideOpsMenu();
   }
-  /* ---- AUTHORIZED roles (แก้รายการได้ที่นี่) ---- */
-  var INSP_ROLES=['INSPECTION PERFORMER','AUTHORIZED INSPECTOR'];
-  var APPR_ROLES=['MANAGER','AUTHORIZED INSPECTOR'];
-
-  function buildRoleMenu(id,roles,pickFn){
-    var m=document.getElementById(id);
-    if(!m){m=document.createElement('div');m.id=id;m.className='no-print';document.body.appendChild(m);}
-    m.innerHTML='';
-    roles.forEach(function(v){
-      var d=document.createElement('div');d.textContent=v;
-      bindMenuPick(d,function(){pickFn(v);m.style.display='none';});
-      m.appendChild(d);
-    });
-    return m;
-  }
-  function posRoleMenu(m,badgeId){
-    var el=document.getElementById(badgeId);if(!el||!m)return;
-    fitMenu(m,el,210);
-  }
-
-  /* INSPECTION PERFORMER */
-  function showInspRoleMenu(){
-    var m=buildRoleMenu('inspRoleMenu',INSP_ROLES,function(v){
-      var el=document.getElementById('f_insp_role');if(el){setRoleBadge(el,v);scheduleSave();}
-    });
-    var cur=document.getElementById('f_insp_role');
-    m.querySelectorAll('div').forEach(function(d){d.classList.toggle('active',d.textContent===(cur&&cur.dataset.role||''));});
-    m.style.display='block';posRoleMenu(m,'f_insp_role');
-    var closeFn=function(e){if(!m.contains(e.target)&&e.target!==cur){m.style.display='none';document.removeEventListener('click',closeFn,true);}};
-    setTimeout(function(){document.addEventListener('click',closeFn,true);},0);
-  }
-
-  /* MANAGER */
-  function showApprRoleMenu(){
-    var m=buildRoleMenu('apprRoleMenu',APPR_ROLES,function(v){
-      var el=document.getElementById('f_appr_role');if(el){setRoleBadge(el,v);scheduleSave();}
-    });
-    var cur=document.getElementById('f_appr_role');
-    m.querySelectorAll('div').forEach(function(d){d.classList.toggle('active',d.textContent===(cur&&cur.dataset.role||''));});
-    m.style.display='block';posRoleMenu(m,'f_appr_role');
-    var closeFn=function(e){if(!m.contains(e.target)&&e.target!==cur){m.style.display='none';document.removeEventListener('click',closeFn,true);}};
-    setTimeout(function(){document.addEventListener('click',closeFn,true);},0);
-  }
-
   function setPreview(on){document.body.classList.toggle('previewmode',!!on);if(on)window.scrollTo(0,0);}
   function setDensity(v){
     document.body.classList.remove('compact','ultra');
@@ -1496,25 +1414,6 @@
   }
 
   /* ---- SAVE / UPDATE ---- */
-  /* ---- LINE: เปิดแอป LINE พร้อมข้อความ (กดส่งเองในแอป) ---- */
-  function sendLineMsg(){
-    var d=collect();var f=d.fields||{};
-    var rows=d.rows||[];
-    var itemCount=rows.filter(function(r){return r.location||r.brand||r.cylinder;}).length||rows.length;
-    var msg='🛟 FFE ใบรับรองใหม่\n'
-      +'──────────────────────\n'
-      +'📋 เลขที่: '  +(f.f_certno ||'-')+'\n'
-      +'🚢 เรือ: '    +(f.f_vessel ||'-')+'\n'
-      +'🔢 IMO: '     +(f.f_imo    ||'-')+'\n'
-      +'📍 สถานที่: ' +(f.f_place  ||'-')+'\n'
-      +'📅 วันที่: '  +(f.f_date+'/'+f.f_month+'/'+f.f_year)+'\n'
-      +'🧯 รายการ: '  +itemCount+' ถัง\n'
-      +'──────────────────────\n'
-      +'👤 ผู้ตรวจ: '    +(f.f_insp_name||'-')+'\n'
-      +'✍️ ผู้อนุมัติ: '+(f.f_appr_name||'-');
-    window.open('https://line.me/R/msg/text/?'+encodeURIComponent(msg),'_blank');
-  }
-
   async function saveCloud(){
     var url=getCloudUrl();
     if(!url){toggleCloudCfg();cstatus('กรุณาใส่ลิงก์ Apps Script ก่อน',true);return;}
