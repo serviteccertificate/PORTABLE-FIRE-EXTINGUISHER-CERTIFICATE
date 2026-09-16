@@ -356,6 +356,7 @@
 
 <div class="cloudbar no-print">
   <button class="btn green" onclick="saveCloud()">☁️ บันทึก / อัปเดต</button>
+  <button class="btn" style="background:#06C755" onclick="sendLineMsg()" title="เปิด LINE พร้อมข้อความ — กดส่งเองในแอป">💬 ส่ง LINE</button>
   <button class="btn" onclick="listCloud()">📋 รายการทั้งหมด</button>
   <button class="btn grey" onclick="newCert()">➕ ใบรับรองใหม่</button>
   <button class="btn grey" onclick="toggleCloudCfg()">⚙️ ตั้งค่า</button>
@@ -1495,6 +1496,25 @@
   }
 
   /* ---- SAVE / UPDATE ---- */
+  /* ---- LINE: เปิดแอป LINE พร้อมข้อความ (กดส่งเองในแอป) ---- */
+  function sendLineMsg(){
+    var d=collect();var f=d.fields||{};
+    var rows=d.rows||[];
+    var itemCount=rows.filter(function(r){return r.location||r.brand||r.cylinder;}).length||rows.length;
+    var msg='🛟 FFE ใบรับรองใหม่\n'
+      +'──────────────────────\n'
+      +'📋 เลขที่: '  +(f.f_certno ||'-')+'\n'
+      +'🚢 เรือ: '    +(f.f_vessel ||'-')+'\n'
+      +'🔢 IMO: '     +(f.f_imo    ||'-')+'\n'
+      +'📍 สถานที่: ' +(f.f_place  ||'-')+'\n'
+      +'📅 วันที่: '  +(f.f_date+'/'+f.f_month+'/'+f.f_year)+'\n'
+      +'🧯 รายการ: '  +itemCount+' ถัง\n'
+      +'──────────────────────\n'
+      +'👤 ผู้ตรวจ: '    +(f.f_insp_name||'-')+'\n'
+      +'✍️ ผู้อนุมัติ: '+(f.f_appr_name||'-');
+    window.open('https://line.me/R/msg/text/?'+encodeURIComponent(msg),'_blank');
+  }
+
   async function saveCloud(){
     var url=getCloudUrl();
     if(!url){toggleCloudCfg();cstatus('กรุณาใส่ลิงก์ Apps Script ก่อน',true);return;}
