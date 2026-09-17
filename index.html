@@ -141,6 +141,8 @@
   .opsedit:focus{outline:1px solid #2563eb;background:#fff7cc;}
   /* ทุกช่องกรอกในใบรับรองแสดงเป็นตัวพิมพ์ใหญ่เสมอ (รวมตอนพิมพ์ออก) */
   #sheet input,#sheet textarea,#sheet [contenteditable]{text-transform:uppercase;}
+  /* ยกเว้น Q'TY และ CAPACITY — พิมพ์เล็กหรือใหญ่ก็ได้ แสดงผล/พิมพ์ออกตามที่พิมพ์จริง */
+  #sheet input[data-col="qty"],#sheet input[data-col="capacity"]{text-transform:none;}
   #opsMenu{position:fixed;z-index:80;display:none;background:#fff;border:1px solid #9bb4d4;
     border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.18);max-height:300px;
     overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;
@@ -237,6 +239,9 @@
   .sign input{text-align:center;}
   .sign input.namefld{display:inline-block;width:14ch;min-width:6ch;max-width:95%;text-align:center;}
   .sign .role{margin-top:2px;}
+  /* role dropdown (INSPECTED BY / APPROVED BY) — plain native <select>, same idea as the shipmaster dropdown */
+  .rolesel{font-weight:bold;font-size:12px;text-align:center;text-align-last:center;
+    border:1px solid #9bb4d4;border-radius:4px;background:#eef5ff;color:#000;padding:1px 4px;cursor:pointer;}
 
   .footer{margin-top:14px;text-align:center;font-size:9.5px;line-height:1.5;border-top:1px solid #ccc;padding-top:6px;}
   .footer .th{font-size:10px;}
@@ -516,13 +521,23 @@
         <div>
           <div>INSPECTED BY</div>
           <div class="line">(<input id="f_insp_name" class="namefld">)</div>
-          <div class="role">INSPECTION PERFORMER</div>
+          <div class="role">
+            <select id="f_insp_role" class="rolesel">
+              <option>INSPECTION PERFORMER</option>
+              <option>AUTHORIZED INSPECTOR</option>
+            </select>
+          </div>
           <input id="f_insp_date" style="width:55%;margin-top:4px" placeholder="DD / MM / YYYY">
         </div>
         <div>
           <div>APPROVED BY</div>
           <div class="line">(<input id="f_appr_name" class="namefld">)</div>
-          <div class="role">MANAGER</div>
+          <div class="role">
+            <select id="f_appr_role" class="rolesel">
+              <option>MANAGER</option>
+              <option>AUTHORIZED INSPECTOR</option>
+            </select>
+          </div>
           <input id="f_appr_date" style="width:55%;margin-top:4px" placeholder="DD / MM / YYYY">
         </div>
       </div>
@@ -535,7 +550,7 @@
  <datalist id="dl_type"><option value="AF"></option><option value="HFC"></option><option value="CO2"></option><option value="CO2 PILOT"></option><option value="DC"></option><option value="DC (CO2 CARTRIDGE)"></option><option value="DP"></option><option value="DP (CO2 CARTRIDGE)"></option><option value="F"></option><option value="W"></option><option value="PFA"></option><option value="SFFF"></option><option value="SFFF (CO2 CARTRIDGE)"></option><option value="N2 PILOT"></option></datalist>
  <datalist id="dl_fire"><option value="ABC"></option><option value="AB"></option><option value="BC"></option><option value="AC"></option><option value="A"></option><option value="B"></option><option value="C"></option><option value="D"></option><option value="F"></option><option value="-"></option></datalist>
  <datalist id="dl_code"><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option><option value="6"></option><option value="7"></option><option value="8"></option><option value="9"></option></datalist>
- <datalist id="dl_qty"><option value="1 CYLN"></option><option value="1 UNIT"></option><option value="1 TROLLEY"></option></datalist>
+ <datalist id="dl_qty"><option value="1 Cyl."></option><option value="1 UNIT"></option><option value="1 TROLLEY"></option></datalist>
 
  <div class="rowtools no-print">
    <button class="btn" onclick="addRow()">➕ เพิ่มแถว</button>
@@ -571,9 +586,9 @@
   var FIRE=["","ABC","AB","BC","AC","A","B","C","D","F","-"];
   // WORKING CODE presets — combined numbers as used in the certificates
   var WORK=["1 , 9","1 , 2","1 , 3 , 9","1 , 4 , 9","1 , 2 , 3 , 4 , 9","1","2","3","4","5","6","7","8","9"];
-  var QTY=["1 CYLN","1 UNIT","1 TROLLEY"];
+  var QTY=["1 Cyl.","1 UNIT","1 TROLLEY"];
   var LOCATIONS=["A DECK","ACCOM DECK","AIR COND ROOM","B DECK","BRIDGE DECK","BOILER","BATTERY ROOM","BOSUN STORE","BOW THRUSTER","C DECK","CCR","COMPRESSOR ROOM","CARGO HOLD NO.1","CARGO HOLD NO.2","CARGO HOLD NO.3","CARGO HOLD NO.4","CARGO HOLD NO.5","CARGO HOLD NO.6","CARGO HOLD NO.7","CARGO HOLD NO.8","CAPT DECK","D DECK","DECK STORE","E DECK","ENGINE ROOM","ECR","EMERGENCY GEN.","F DECK","FIRE STATION","FUNNEL","FORECASTLE","GALLEY","GENERATOR ROOM","HELI DECK","HOSPITAL","IG ROOM","LABORATORY","LIFEBOAT PORT","LIFEBOAT STBD","LAUNDRY","MESS ROOM","MAIN DECK","NAV.BRIDGE","OFFICE MESS ROOM","PAINT STORE","PUMP ROOM","PURIFIER ROOM","POOP DECK","RESCUE BOAT","SMOKING ROOM","SAFETY STORE","STEERING GEAR","UPPER DECK","WHEEL HOUSE","WORKSHOP"];
-  var FIELDS=["f_shipmaster","f_year","f_month","f_date","f_vessel","f_imo","f_certno","f_place","f_flag","f_class","f_items","f_ops","f_next","f_insp_name","f_insp_date","f_appr_name","f_appr_date","f_break","f_break2"];
+  var FIELDS=["f_shipmaster","f_year","f_month","f_date","f_vessel","f_imo","f_certno","f_place","f_flag","f_class","f_items","f_ops","f_next","f_insp_name","f_insp_role","f_insp_date","f_appr_name","f_appr_role","f_appr_date","f_break","f_break2"];
   // operations available after "HAD BEEN ..." in the certified statement
   var OPS=["INSPECTED","TESTED","WEIGHTED","REFILLED","NEW SUPPLIED","RECHARGED","HYDRO TESTED","REPAIRED","REPAINTED","REJECTED"];
   var OPS_DEFAULT="INSPECTED / TESTED / WEIGHTED / REFILLED AND NEW SUPPLIED";
@@ -586,10 +601,13 @@
   function isInputEl(el){return el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT');}
   function fldGet(el){return isInputEl(el)?String(el.value||''):String(el.textContent||'');}
   function fldSet(el,v){if(isInputEl(el))el.value=v;else el.textContent=v;}
+  var ROLE_DEFAULT={f_insp_role:'INSPECTION PERFORMER',f_appr_role:'MANAGER'};
   function clearFields(){
     FIELDS.forEach(function(f){
       var el=document.getElementById(f);if(!el)return;
-      fldSet(el,(f==='f_ops')?OPS_DEFAULT:'');
+      if(f==='f_ops')fldSet(el,OPS_DEFAULT);
+      else if(ROLE_DEFAULT[f])fldSet(el,ROLE_DEFAULT[f]);
+      else fldSet(el,'');
     });
     autosizeItems();
   }
@@ -615,7 +633,7 @@
   function cell(html){var td=document.createElement('td');td.innerHTML=html;return td;}
   function inAttr(col){
     var a=' autocomplete="off" autocorrect="off" spellcheck="false"';
-    if(['type','fire','code','cylinder','capacity','qty'].indexOf(col)>=0)a+=' autocapitalize="characters"';
+    if(['type','fire','code','cylinder'].indexOf(col)>=0)a+=' autocapitalize="characters"';
     return a;
   }
 
@@ -626,7 +644,7 @@
     var cols=['qty','location','brand','cylinder','mfd','lasthydro','hydro'];
     cols.forEach(function(c){
       var td=document.createElement('td');
-      var extra=(c==='qty')?' class="codecell qtycell"':(c==='location'?' class="loccell"':'');
+      var extra=(c==='qty')?' class="qtycell"':(c==='location'?' class="loccell"':'');
       td.innerHTML='<input data-col="'+c+'"'+extra+inAttr(c)+'>';
       tr.appendChild(td);
     });
@@ -1576,6 +1594,8 @@
       var el=e.target;
       if(!el||(el.tagName!=='INPUT'&&el.tagName!=='TEXTAREA'))return;
       if(el.type==='number'||el.type==='url'||el.type==='email')return;
+      var col=el.getAttribute('data-col');
+      if(col==='qty'||col==='capacity')return;   // ยกเว้น Q'TY และ CAPACITY — พิมพ์เล็ก/ใหญ่ได้ตามที่พิมพ์จริง
       var up=(el.value||'').toUpperCase();
       if(up!==el.value){
         var s=el.selectionStart,en=el.selectionEnd;
@@ -1583,7 +1603,7 @@
         try{el.setSelectionRange(s,en);}catch(_){}
       }
     },true);
-    FIELDS.forEach(function(f){var el=document.getElementById(f);if(el)el.addEventListener('input',scheduleSave);});
+    FIELDS.forEach(function(f){var el=document.getElementById(f);if(el){el.addEventListener('input',scheduleSave);el.addEventListener('change',scheduleSave);}});
     document.querySelectorAll('input.namefld').forEach(function(el){
       el.addEventListener('input',function(){autosizeName(el);});
       autosizeName(el);
