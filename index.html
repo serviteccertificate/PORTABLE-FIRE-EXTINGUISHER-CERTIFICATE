@@ -253,7 +253,9 @@
 
   /* ---------- PRINT ---------- */
   @media print{
-    @page{size:A4 portrait;margin:7mm;}
+    /* margin 0 = browser never prints its own date/title/URL header & footer.
+       The page spacing is built into the repeated header/footer cells instead (12mm top, 7mm sides/bottom). */
+    @page{size:A4 portrait;margin:0;}
     html,body{
       background:#fff;
       -webkit-print-color-adjust:exact;
@@ -263,7 +265,10 @@
     /* dropdown ไม่แสดงในหัวกระดาษที่เบราว์เซอร์ทำซ้ำหน้า 2+ → พิมพ์เป็นข้อความธรรมดาแทน */
     .topbar select.shipmaster{display:none !important;}
     .topbar .shipmaster-print{display:block !important;}
-    .sheet{width:auto;min-height:auto;margin:0;padding:0;box-shadow:none;}
+    .sheet{width:auto;min-height:auto;margin:0;padding:0 7mm;box-shadow:none;}
+    .doc thead .blockcell{padding-top:12mm !important;}   /* top space on EVERY page (keeps the MSC logo clear of the paper edge) */
+    .doc tfoot .footcell{padding-bottom:7mm !important;}  /* bottom space on every page */
+    #summarySheet{padding:12mm 7mm 7mm !important;}
 
     /* thead repeats branding + legend + column headers on every page */
     .doc thead{display:table-header-group;}
@@ -303,7 +308,9 @@
   body.measureprint .center-logo img{height:30px;}
   body.measureprint .class-logos{height:34px;}
   body.measureprint input,body.measureprint textarea,body.measureprint select{border:0;}
-  body.measureprint .sheet{padding:7mm;box-shadow:none;} /* match the real @page margin (7mm) so text wraps exactly as it will print */
+  body.measureprint .sheet{padding:0 7mm;box-shadow:none;} /* same side padding as the real print so text wraps exactly as it will print */
+  body.measureprint .doc thead .blockcell{padding-top:12mm;}
+  body.measureprint .doc tfoot .footcell{padding-bottom:7mm;}
   body.measureprint .no-print{display:none!important;}
   body.measureprint .delcol,body.measureprint #rows td.delcell{display:none!important;} /* this column is removed on the real printed page, so the data columns get wider there — hide it during measurement too or row heights get overestimated */
   /* normal density prints rows at 9px (screen shows 10px); compact/ultra already match print, so only touch normal */
@@ -1064,9 +1071,9 @@
   // page capacities (rows) measured from real A4 prints
   // P1/PN = rows-only on a non-last page; P1S/PNS = rows on a LAST page (shares space with signature)
   var CAP={
-    normal :{P1:33,P1S:18,PN:56,PNS:42},
-    compact:{P1:41,P1S:26,PN:72,PNS:56},
-    ultra  :{P1:48,P1S:37,PN:70,PNS:57}
+    normal :{P1:30,P1S:14,PN:54,PNS:38},   // re-measured for the 12mm top page margin (logo never clipped)
+    compact:{P1:38,P1S:19,PN:64,PNS:45},
+    ultra  :{P1:45,P1S:30,PN:70,PNS:55}
   };
   function density(){return document.body.classList.contains('ultra')?'ultra':(document.body.classList.contains('compact')?'compact':'normal');}
 
@@ -1098,7 +1105,7 @@
       body.classList.add('measureprint');
       try{resizeAllTypeboxes();resizeAllWorkboxes();}catch(e){} // recompute textarea heights at print font
       var MM=96/25.4;                 // CSS px per mm at 96dpi (Chrome default print scale)
-      var pageH=283*MM;               // A4 297mm − 2×7mm @page margin = usable content height / page
+      var pageH=297*MM;               // A4 full height (@page margin 0; top/bottom space lives inside thead/tfoot) @page margin = usable content height / page
       function h(el){return el?el.getBoundingClientRect().height:0;}
       var theadH =h(document.querySelector('.doc thead'));
       var tfootH =h(document.querySelector('.doc tfoot'));
